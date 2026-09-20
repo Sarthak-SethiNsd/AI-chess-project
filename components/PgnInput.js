@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { validatePgn, loadGameFromPgn } from "@/lib/chessEngine";
+import GameSetupForm from "@/components/GameSetupForm";
 
 const MAX_FILE_SIZE_BYTES = 1024 * 1024; // 1MB
 
@@ -28,9 +29,61 @@ export default function PgnInput({ onGameLoaded }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
+  // Setup Form State: Playing Color & Rating
+  const [color, setColor] = useState("");
+  const [rating, setRating] = useState("");
+  const [ratingTouched, setRatingTouched] = useState(false);
+
+  // Compute rating error
+  const computeRatingError = (val) => {
+    const trimmed = String(val).trim();
+    if (!trimmed) {
+      return "Rating is required.";
+    }
+    const num = Number(trimmed);
+    if (!Number.isInteger(num)) {
+      return "Rating must be a whole number.";
+    }
+    if (num < 100 || num > 3500) {
+      return "Rating must be between 100 and 3500.";
+    }
+    return null;
+  };
+
+  const ratingError = ratingTouched ? computeRatingError(rating) : null;
+  const isRatingValid = computeRatingError(rating) === null;
+  const isColorValid = color === "white" || color === "black";
+  const isPgnEntered = Boolean(pgn.trim());
+
+  // Overall readiness gate
+  const isReadyToAnalyze = isPgnEntered && isColorValid && isRatingValid;
+
+  // Describe missing requirements for user guidance
+  const getMissingRequirementsMessage = () => {
+    const missing = [];
+    if (!isPgnEntered) missing.push("PGN text or file");
+    if (!isColorValid) missing.push("playing color");
+    if (!isRatingValid) missing.push("rating (100–3500)");
+
+    if (missing.length === 0) return null;
+    return `Required to analyze: please provide ${missing.join(", ")}.`;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     setError(null);
+    setRatingTouched(true);
+
+    if (!isColorValid) {
+      setError("Please select your playing color (White or Black) before analyzing.");
+      return;
+    }
+
+    const ratingErr = computeRatingError(rating);
+    if (ratingErr) {
+      setError(ratingErr);
+      return;
+    }
 
     const trimmedPgn = pgn.trim();
     if (!trimmedPgn) {
@@ -49,7 +102,11 @@ export default function PgnInput({ onGameLoaded }) {
 
       const game = loadGameFromPgn(trimmedPgn);
       if (onGameLoaded) {
-        onGameLoaded(game);
+        onGameLoaded({
+          game,
+          rating: Number(rating),
+          color,
+        });
       }
     } catch (err) {
       setError(err?.message || "An unexpected error occurred while parsing the PGN.");
@@ -101,6 +158,9 @@ export default function PgnInput({ onGameLoaded }) {
     setPgn(SAMPLE_PGN);
     setLoadedFileName(null);
     setError(null);
+    if (!color) setColor("white");
+    if (!rating) setRating("1500");
+    setRatingTouched(true);
   };
 
   const handleClear = () => {
@@ -111,7 +171,7 @@ export default function PgnInput({ onGameLoaded }) {
   };
 
   return (
-    <div className="w-full max-w-3xl mx-auto space-y-4">
+    <div className="w-full max-w-3xl mx-auto space-y-5">
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -122,15 +182,15 @@ export default function PgnInput({ onGameLoaded }) {
         id="pgn-file-upload"
       />
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Header & Controls */}
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* PGN Header & Action Controls */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <label
               htmlFor="pgn-input"
               className="block text-sm font-semibold text-zinc-900 dark:text-zinc-100"
             >
-              PGN Game Notation
+              PGN Game Notation <span className="text-red-500">*</span>
             </label>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               Paste notation below or upload a <code className="font-mono text-indigo-600 dark:text-indigo-400">.pgn</code> file
@@ -181,7 +241,7 @@ export default function PgnInput({ onGameLoaded }) {
           </div>
         )}
 
-        {/* Textarea */}
+        {/* PGN Textarea */}
         <div className="relative">
           <textarea
             id="pgn-input"
@@ -191,10 +251,26 @@ export default function PgnInput({ onGameLoaded }) {
               if (error) setError(null);
             }}
             placeholder={`[Event "World Championship"]\n[White "Player 1"]\n[Black "Player 2"]\n[Result "1-0"]\n\n1. e4 e5 2. Nf3 Nc6...`}
-            rows={9}
+            rows={8}
             className="w-full p-3 font-mono text-sm rounded-lg border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 resize-y shadow-sm transition-all"
           />
         </div>
+
+        {/* Game Setup Section: Rating & Color */}
+        <GameSetupForm
+          rating={rating}
+          onRatingChange={(val) => {
+            setRating(val);
+            setRatingTouched(true);
+            if (error) setError(null);
+          }}
+          color={color}
+          onColorChange={(c) => {
+            setColor(c);
+            if (error) setError(null);
+          }}
+          ratingError={ratingError}
+        />
 
         {/* Error notification */}
         {error && (
@@ -219,12 +295,23 @@ export default function PgnInput({ onGameLoaded }) {
           </div>
         )}
 
-        {/* Submit */}
-        <div className="flex items-center justify-end gap-3">
+        {/* Action Controls & Missing Guidance */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-1">
+          <div className="text-xs text-zinc-500 dark:text-zinc-400 text-center sm:text-left">
+            {!isReadyToAnalyze && (
+              <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>{getMissingRequirementsMessage()}</span>
+              </span>
+            )}
+          </div>
+
           <button
             type="submit"
-            disabled={!pgn.trim() || isSubmitting}
-            className="px-5 py-2.5 rounded-lg font-medium text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow transition-all"
+            disabled={!isReadyToAnalyze || isSubmitting}
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow transition-all"
           >
             {isSubmitting ? "Validating..." : "Analyze Game"}
           </button>

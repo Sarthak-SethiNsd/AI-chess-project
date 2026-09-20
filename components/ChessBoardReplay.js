@@ -1,10 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Chessboard } from "react-chessboard";
 import { getFenAt } from "@/lib/chessEngine";
 
-export default function ChessBoardReplay({ game }) {
+export default function ChessBoardReplay({ game, orientation = "white" }) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
 
@@ -98,8 +98,12 @@ export default function ChessBoardReplay({ game }) {
           </p>
         </div>
 
-        {/* Current Move Status Pill */}
+        {/* Current Move Status Pill & Orientation */}
         <div className="flex items-center gap-2">
+          <span className="px-2.5 py-1 rounded-md text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 capitalize flex items-center gap-1.5">
+            <span>{orientation === "black" ? "♚" : "♔"}</span>
+            <span>{orientation} Perspective</span>
+          </span>
           <div className="px-3.5 py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-800 dark:text-zinc-200">
             {isAtStart ? (
               <span>Starting Position</span>
@@ -129,7 +133,7 @@ export default function ChessBoardReplay({ game }) {
                 position: currentFen,
                 allowDragging: false,
                 canDragPiece: () => false,
-                boardOrientation: "white",
+                boardOrientation: orientation === "black" ? "black" : "white",
                 boardStyle: {
                   borderRadius: "12px",
                 },

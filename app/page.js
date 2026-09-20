@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState } from "react";
 import PgnInput from "@/components/PgnInput";
@@ -6,13 +6,19 @@ import ChessBoardReplay from "@/components/ChessBoardReplay";
 
 export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
+  const [userRating, setUserRating] = useState(null);
+  const [userColor, setUserColor] = useState("white");
 
-  const handleGameLoaded = (game) => {
+  const handleGameLoaded = ({ game, rating, color }) => {
     setLoadedGame(game);
+    setUserRating(rating);
+    setUserColor(color);
   };
 
   const handleReset = () => {
     setLoadedGame(null);
+    setUserRating(null);
+    setUserColor("white");
   };
 
   return (
@@ -68,37 +74,55 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">White Player</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+              {/* Game Metadata & User Info */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">White</p>
+                  <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                     {loadedGame.headers.White || "Unknown"}
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Black Player</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+
+                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Black</p>
+                  <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                     {loadedGame.headers.Black || "Unknown"}
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Total Moves</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                    {loadedGame.totalMoves} ply ({Math.ceil(loadedGame.totalMoves / 2)} moves)
+
+                <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">You Played</p>
+                  <p className="mt-0.5 text-sm font-bold text-indigo-950 dark:text-indigo-200 capitalize flex items-center gap-1">
+                    <span>{userColor === "black" ? "♚ Black" : "♔ White"}</span>
                   </p>
                 </div>
-                <div className="p-3.5 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
+
+                <div className="p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-100 dark:border-indigo-900/50">
+                  <p className="text-xs text-indigo-600 dark:text-indigo-400 font-medium">Your Rating</p>
+                  <p className="mt-0.5 text-sm font-bold text-indigo-950 dark:text-indigo-200 font-mono">
+                    {userRating || "—"}
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Total Moves</p>
+                  <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                    {loadedGame.totalMoves} ply
+                  </p>
+                </div>
+
+                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">Event / Date</p>
-                  <p className="mt-1 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-                    {loadedGame.headers.Event || "Casual"} {loadedGame.headers.Date ? `(${loadedGame.headers.Date})` : ""}
+                  <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                    {loadedGame.headers.Event || "Casual"}
                   </p>
                 </div>
               </div>
             </section>
 
-            {/* Interactive Chessboard Replay */}
+            {/* Interactive Chessboard Replay with User Orientation */}
             <section>
-              <ChessBoardReplay game={loadedGame} />
+              <ChessBoardReplay game={loadedGame} orientation={userColor} />
             </section>
           </div>
         )}
