@@ -8,17 +8,33 @@ export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
   const [userRating, setUserRating] = useState(null);
   const [userColor, setUserColor] = useState("white");
+  const [userPlatform, setUserPlatform] = useState("");
+  const [reviewDepth, setReviewDepth] = useState("Standard");
+  const [explanationLanguage, setExplanationLanguage] = useState("English");
 
-  const handleGameLoaded = ({ game, rating, color }) => {
+  const handleGameLoaded = ({
+    game,
+    rating,
+    color,
+    platform,
+    reviewDepth: depth,
+    language,
+  }) => {
     setLoadedGame(game);
     setUserRating(rating);
     setUserColor(color);
+    setUserPlatform(platform || "");
+    setReviewDepth(depth || "Standard");
+    setExplanationLanguage(language || "English");
   };
 
   const handleReset = () => {
     setLoadedGame(null);
     setUserRating(null);
     setUserColor("white");
+    setUserPlatform("");
+    setReviewDepth("Standard");
+    setExplanationLanguage("English");
   };
 
   return (
@@ -75,7 +91,7 @@ export default function Home() {
               </div>
 
               {/* Game Metadata & User Info */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200/60 dark:border-zinc-700/60">
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 font-medium">White</p>
                   <p className="mt-0.5 text-sm font-semibold text-zinc-900 dark:text-zinc-100 truncate">
@@ -117,6 +133,22 @@ export default function Home() {
                     {loadedGame.headers.Event || "Casual"}
                   </p>
                 </div>
+              </div>
+
+              {/* Preferences Summary Badges */}
+              <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex flex-wrap items-center gap-2 text-xs">
+                <span className="text-zinc-400 dark:text-zinc-500 font-medium">Review Settings:</span>
+                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700">
+                  Depth: <strong>{reviewDepth}</strong>
+                </span>
+                <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700">
+                  Language: <strong>{explanationLanguage}</strong>
+                </span>
+                {userPlatform && (
+                  <span className="px-2.5 py-1 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-medium border border-zinc-200 dark:border-zinc-700">
+                    Platform: <strong>{userPlatform}</strong>
+                  </span>
+                )}
               </div>
             </section>
 

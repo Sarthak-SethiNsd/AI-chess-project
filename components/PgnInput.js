@@ -29,10 +29,15 @@ export default function PgnInput({ onGameLoaded }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Setup Form State: Playing Color & Rating
+  // Setup Form State: Required
   const [color, setColor] = useState("");
   const [rating, setRating] = useState("");
   const [ratingTouched, setRatingTouched] = useState(false);
+
+  // Setup Form State: Optional Preferences
+  const [platform, setPlatform] = useState("");
+  const [reviewDepth, setReviewDepth] = useState("Standard");
+  const [language, setLanguage] = useState("English");
 
   // Compute rating error
   const computeRatingError = (val) => {
@@ -55,7 +60,7 @@ export default function PgnInput({ onGameLoaded }) {
   const isColorValid = color === "white" || color === "black";
   const isPgnEntered = Boolean(pgn.trim());
 
-  // Overall readiness gate
+  // Overall readiness gate - optional fields do NOT block
   const isReadyToAnalyze = isPgnEntered && isColorValid && isRatingValid;
 
   // Describe missing requirements for user guidance
@@ -106,6 +111,9 @@ export default function PgnInput({ onGameLoaded }) {
           game,
           rating: Number(rating),
           color,
+          platform: platform.trim(),
+          reviewDepth: reviewDepth || "Standard",
+          language: language || "English",
         });
       }
     } catch (err) {
@@ -167,6 +175,12 @@ export default function PgnInput({ onGameLoaded }) {
     setPgn("");
     setLoadedFileName(null);
     setError(null);
+    setColor("");
+    setRating("");
+    setRatingTouched(false);
+    setPlatform("");
+    setReviewDepth("Standard");
+    setLanguage("English");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -256,7 +270,7 @@ export default function PgnInput({ onGameLoaded }) {
           />
         </div>
 
-        {/* Game Setup Section: Rating & Color */}
+        {/* Game Setup Section: Required & Optional Fields */}
         <GameSetupForm
           rating={rating}
           onRatingChange={(val) => {
@@ -270,6 +284,12 @@ export default function PgnInput({ onGameLoaded }) {
             if (error) setError(null);
           }}
           ratingError={ratingError}
+          platform={platform}
+          onPlatformChange={setPlatform}
+          reviewDepth={reviewDepth}
+          onReviewDepthChange={setReviewDepth}
+          language={language}
+          onLanguageChange={setLanguage}
         />
 
         {/* Error notification */}
