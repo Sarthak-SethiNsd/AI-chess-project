@@ -13,7 +13,8 @@
     "next": "16.3.5",
     "react": "19.2.8",
     "react-chessboard": "^5.12.1",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "stockfish.js": "^10.0.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
