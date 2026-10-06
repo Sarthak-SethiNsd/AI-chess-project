@@ -3,8 +3,13 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Chessboard } from "react-chessboard";
 import { getFenAt } from "@/lib/chessEngine";
+import { getCategoryConfig } from "@/lib/categoryStyles";
 
-export default function ChessBoardReplay({ game, orientation = "white" }) {
+export default function ChessBoardReplay({
+  game,
+  orientation = "white",
+  categorizedEvaluations = [],
+}) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
 
@@ -22,8 +27,18 @@ export default function ChessBoardReplay({ game, orientation = "white" }) {
     return getFenAt(game, currentMoveIndex);
   }, [game, currentMoveIndex]);
 
-  // Current move metadata
+  // Current move metadata from loaded game
   const currentMove = currentMoveIndex >= 0 && game?.moves ? game.moves[currentMoveIndex] : null;
+
+  // Current move evaluation and categorization (if available)
+  const currentMoveEval =
+    currentMoveIndex >= 0 && categorizedEvaluations?.length > currentMoveIndex
+      ? categorizedEvaluations[currentMoveIndex]
+      : null;
+
+  const currentCategoryConfig = currentMoveEval?.category
+    ? getCategoryConfig(currentMoveEval.category)
+    : null;
 
   // Navigation handlers
   const handleFirst = useCallback(() => setCurrentMoveIndex(-1), []);
@@ -90,11 +105,11 @@ export default function ChessBoardReplay({ game, orientation = "white" }) {
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white flex items-center gap-2">
             <span>Board Replay</span>
             <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">
-              (Read-only)
+              (Interactive)
             </span>
           </h2>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Use replay buttons or keyboard arrow keys (← / →) to navigate
+            Use replay buttons or keyboard arrow keys (← / →) to navigate moves
           </p>
         </div>
 
@@ -139,6 +154,71 @@ export default function ChessBoardReplay({ game, orientation = "white" }) {
                 },
               }}
             />
+          </div>
+
+          {/* Board Move Annotation Bar */}
+          <div className="w-full max-w-[440px] p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 transition-all">
+            {isAtStart ? (
+              <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="w-2 h-2 rounded-full bg-zinc-400" />
+                  Starting Position
+                </span>
+                <span>Use controls below to step through</span>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold font-mono text-zinc-900 dark:text-zinc-100">
+                    {currentMove?.moveNumber}
+                    {currentMove?.turn === "w" ? ". " : "... "}
+                    {currentMove?.san}
+                  </span>
+
+                  {currentCategoryConfig ? (
+                    <span
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-bold border shadow-xs ${currentCategoryConfig.badgeClasses}`}
+                    >
+                      <span>{currentCategoryConfig.symbol}</span>
+                      <span>{currentCategoryConfig.label}</span>
+                    </span>
+                  ) : (
+                    <span className="text-xs text-zinc-400 font-medium">Played move</span>
+                  )}
+                </div>
+
+                {/* Move Quality Details */}
+                <div className="text-right text-xs">
+                  {currentMoveEval ? (
+                    currentMoveEval.category === "Best" || currentMoveEval.category === "Brilliant" ? (
+                      <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                        {currentMoveEval.category === "Brilliant"
+                          ? "Piece Sacrifice!"
+                          : "Top Engine Move"}
+                      </span>
+                    ) : currentMoveEval.evalDrop > 0 ? (
+                      <span className="text-zinc-600 dark:text-zinc-300">
+                        Loss:{" "}
+                        <strong className="text-red-600 dark:text-red-400 font-mono">
+                          -{(currentMoveEval.evalDrop / 100).toFixed(1)}
+                        </strong>{" "}
+                        pawns
+                        {currentMoveEval.evalBefore?.bestMove?.san &&
+                          currentMoveEval.evalBefore.bestMove.san !== currentMove?.san && (
+                            <span className="block text-[11px] text-zinc-400">
+                              Best: {currentMoveEval.evalBefore.bestMove.san}
+                            </span>
+                          )}
+                      </span>
+                    ) : (
+                      <span className="text-zinc-400">Neutral</span>
+                    )
+                  ) : (
+                    <span className="text-zinc-400">Analyzing...</span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Replay Controls Toolbar */}
@@ -208,47 +288,82 @@ export default function ChessBoardReplay({ game, orientation = "white" }) {
             </button>
           </div>
 
-          <div className="h-[380px] lg:h-[440px] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 divide-y divide-zinc-100 dark:divide-zinc-800/80 text-sm font-mono">
-            {movePairs.map((pair) => (
-              <div
-                key={pair.moveNumber}
-                className="flex items-center hover:bg-zinc-100/70 dark:hover:bg-zinc-800/40 transition-colors px-3 py-1.5"
-              >
-                <span className="w-10 text-zinc-400 dark:text-zinc-500 text-xs select-none">
-                  {pair.moveNumber}.
-                </span>
+          <div className="h-[380px] lg:h-[490px] overflow-y-auto rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50 divide-y divide-zinc-100 dark:divide-zinc-800/80 text-sm font-mono">
+            {movePairs.map((pair) => {
+              const whiteEval = categorizedEvaluations?.[pair.whiteIndex];
+              const whiteConfig = whiteEval?.category ? getCategoryConfig(whiteEval.category) : null;
 
-                {/* White Move */}
-                <button
-                  type="button"
-                  onClick={() => setCurrentMoveIndex(pair.whiteIndex)}
-                  className={`flex-1 text-left px-2 py-1 rounded transition-colors cursor-pointer ${
-                    currentMoveIndex === pair.whiteIndex
-                      ? "bg-indigo-600 text-white font-bold shadow-xs"
-                      : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60"
-                  }`}
+              const blackEval = pair.black ? categorizedEvaluations?.[pair.blackIndex] : null;
+              const blackConfig = blackEval?.category ? getCategoryConfig(blackEval.category) : null;
+
+              const isWhiteSelected = currentMoveIndex === pair.whiteIndex;
+              const isBlackSelected = currentMoveIndex === pair.blackIndex;
+
+              return (
+                <div
+                  key={pair.moveNumber}
+                  className="flex items-center hover:bg-zinc-100/70 dark:hover:bg-zinc-800/40 transition-colors px-2.5 py-1.5 gap-1.5"
                 >
-                  {pair.white.san}
-                </button>
+                  <span className="w-8 text-zinc-400 dark:text-zinc-500 text-xs select-none">
+                    {pair.moveNumber}.
+                  </span>
 
-                {/* Black Move */}
-                {pair.black ? (
+                  {/* White Move */}
                   <button
                     type="button"
-                    onClick={() => setCurrentMoveIndex(pair.blackIndex)}
-                    className={`flex-1 text-left px-2 py-1 rounded transition-colors cursor-pointer ${
-                      currentMoveIndex === pair.blackIndex
+                    onClick={() => setCurrentMoveIndex(pair.whiteIndex)}
+                    className={`flex-1 flex items-center justify-between gap-1.5 px-2 py-1 rounded transition-all cursor-pointer ${
+                      isWhiteSelected
                         ? "bg-indigo-600 text-white font-bold shadow-xs"
-                        : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-700/60"
+                        : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800"
                     }`}
                   >
-                    {pair.black.san}
+                    <span className="truncate">{pair.white.san}</span>
+                    {whiteConfig && (
+                      <span
+                        className={`inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-bold border transition-colors ${
+                          isWhiteSelected
+                            ? "bg-white/20 text-white border-white/30"
+                            : whiteConfig.badgeClasses
+                        }`}
+                        title={`${whiteConfig.label} (${whiteConfig.symbol})`}
+                      >
+                        <span>{whiteConfig.symbol}</span>
+                      </span>
+                    )}
                   </button>
-                ) : (
-                  <span className="flex-1" />
-                )}
-              </div>
-            ))}
+
+                  {/* Black Move */}
+                  {pair.black ? (
+                    <button
+                      type="button"
+                      onClick={() => setCurrentMoveIndex(pair.blackIndex)}
+                      className={`flex-1 flex items-center justify-between gap-1.5 px-2 py-1 rounded transition-all cursor-pointer ${
+                        isBlackSelected
+                          ? "bg-indigo-600 text-white font-bold shadow-xs"
+                          : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800"
+                      }`}
+                    >
+                      <span className="truncate">{pair.black.san}</span>
+                      {blackConfig && (
+                        <span
+                          className={`inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-bold border transition-colors ${
+                            isBlackSelected
+                              ? "bg-white/20 text-white border-white/30"
+                              : blackConfig.badgeClasses
+                          }`}
+                          title={`${blackConfig.label} (${blackConfig.symbol})`}
+                        >
+                          <span>{blackConfig.symbol}</span>
+                        </span>
+                      )}
+                    </button>
+                  ) : (
+                    <span className="flex-1" />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
