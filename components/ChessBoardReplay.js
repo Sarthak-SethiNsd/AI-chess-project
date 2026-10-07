@@ -189,7 +189,19 @@ export default function ChessBoardReplay({
 
                 {/* Move Quality Details */}
                 <div className="text-right text-xs">
-                  {currentMoveEval ? (
+                  {currentMoveIndex === totalMoves - 1 && game.isCheckmate ? (
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400">
+                      Delivers Checkmate!
+                    </span>
+                  ) : currentMoveIndex === totalMoves - 1 && game.isStalemate ? (
+                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">
+                      Results in Stalemate (Draw)
+                    </span>
+                  ) : currentMoveIndex === totalMoves - 1 && game.isDraw ? (
+                    <span className="font-semibold text-zinc-600 dark:text-zinc-400">
+                      Results in Draw
+                    </span>
+                  ) : currentMoveEval ? (
                     currentMoveEval.category === "Best" || currentMoveEval.category === "Brilliant" ? (
                       <span className="font-medium text-emerald-600 dark:text-emerald-400">
                         {currentMoveEval.category === "Brilliant"

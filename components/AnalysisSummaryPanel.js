@@ -85,14 +85,20 @@ export default function AnalysisSummaryPanel({
           <div className="mt-3 flex items-baseline justify-between">
             <div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">Accuracy</p>
-              <p className={`text-2xl font-black font-mono tracking-tight ${getAccuracyColor(summary.white.accuracy)}`}>
-                {summary.white.accuracy}%
-              </p>
+              {summary.white.moveCount > 0 ? (
+                <p className={`text-2xl font-black font-mono tracking-tight ${getAccuracyColor(summary.white.accuracy)}`}>
+                  {summary.white.accuracy}%
+                </p>
+              ) : (
+                <p className="text-2xl font-black font-mono tracking-tight text-zinc-400">
+                  —
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-zinc-500 dark:text-zinc-400">Avg. Eval Loss</p>
               <p className="text-sm font-bold font-mono text-zinc-700 dark:text-zinc-300">
-                {summary.white.averageEvalDrop} <span className="text-xs font-normal text-zinc-400">cp</span>
+                {summary.white.moveCount > 0 ? `${summary.white.averageEvalDrop} cp` : "—"}
               </p>
             </div>
           </div>
@@ -101,7 +107,7 @@ export default function AnalysisSummaryPanel({
           <div className="mt-3 w-full h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${getProgressBarColor(summary.white.accuracy)}`}
-              style={{ width: `${Math.min(100, Math.max(0, summary.white.accuracy))}%` }}
+              style={{ width: `${summary.white.moveCount > 0 ? Math.min(100, Math.max(0, summary.white.accuracy)) : 0}%` }}
             />
           </div>
         </div>
@@ -131,14 +137,20 @@ export default function AnalysisSummaryPanel({
           <div className="mt-3 flex items-baseline justify-between">
             <div>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">Accuracy</p>
-              <p className={`text-2xl font-black font-mono tracking-tight ${getAccuracyColor(summary.black.accuracy)}`}>
-                {summary.black.accuracy}%
-              </p>
+              {summary.black.moveCount > 0 ? (
+                <p className={`text-2xl font-black font-mono tracking-tight ${getAccuracyColor(summary.black.accuracy)}`}>
+                  {summary.black.accuracy}%
+                </p>
+              ) : (
+                <p className="text-2xl font-black font-mono tracking-tight text-zinc-400">
+                  —
+                </p>
+              )}
             </div>
             <div className="text-right">
               <p className="text-xs text-zinc-500 dark:text-zinc-400">Avg. Eval Loss</p>
               <p className="text-sm font-bold font-mono text-zinc-700 dark:text-zinc-300">
-                {summary.black.averageEvalDrop} <span className="text-xs font-normal text-zinc-400">cp</span>
+                {summary.black.moveCount > 0 ? `${summary.black.averageEvalDrop} cp` : "—"}
               </p>
             </div>
           </div>
@@ -147,7 +159,7 @@ export default function AnalysisSummaryPanel({
           <div className="mt-3 w-full h-2 rounded-full bg-zinc-200 dark:bg-zinc-700 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all duration-700 ${getProgressBarColor(summary.black.accuracy)}`}
-              style={{ width: `${Math.min(100, Math.max(0, summary.black.accuracy))}%` }}
+              style={{ width: `${summary.black.moveCount > 0 ? Math.min(100, Math.max(0, summary.black.accuracy)) : 0}%` }}
             />
           </div>
         </div>

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef } from "react";
 import { validatePgn, loadGameFromPgn } from "@/lib/chessEngine";
@@ -22,7 +22,7 @@ Nc4 Nxc4 22. Bxc4 Nb6 23. Ne5 Rae8 24. Bxf7+ Rxf7 25. Nxf7 Rxe1+ 26. Qxe1 Kxf7
 f3 Bc8 34. Kf2 Bf5 35. Ra7 g6 36. Ra6+ Kc5 37. Ke1 Nf4 38. g3 Nxh3 39. Kd2 Kb5
 40. Rd6 Kc5 41. Ra6 Nf2 42. g4 Bd3 43. Re6 1/2-1/2`;
 
-export default function PgnInput({ onGameLoaded }) {
+export default function PgnInput({ onGameLoaded, isAnalyzing = false }) {
   const [pgn, setPgn] = useState("");
   const [error, setError] = useState(null);
   const [loadedFileName, setLoadedFileName] = useState(null);
@@ -79,6 +79,10 @@ export default function PgnInput({ onGameLoaded }) {
     setError(null);
     setRatingTouched(true);
 
+    if (isAnalyzing) {
+      return;
+    }
+
     if (!isColorValid) {
       setError("Please select your playing color (White or Black) before analyzing.");
       return;
@@ -101,6 +105,12 @@ export default function PgnInput({ onGameLoaded }) {
       const validation = validatePgn(trimmedPgn);
       if (!validation.isValid) {
         setError(`Invalid PGN: ${validation.error || "Please check the format and try again."}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (validation.moveCount === 0) {
+        setError("This PGN does not contain any moves to review (e.g. an aborted or unplayed game). Please provide a game with at least one move.");
         setIsSubmitting(false);
         return;
       }
@@ -330,10 +340,14 @@ export default function PgnInput({ onGameLoaded }) {
 
           <button
             type="submit"
-            disabled={!isReadyToAnalyze || isSubmitting}
+            disabled={!isReadyToAnalyze || isSubmitting || isAnalyzing}
             className="w-full sm:w-auto px-6 py-2.5 rounded-lg font-medium text-sm text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer shadow-sm hover:shadow transition-all"
           >
-            {isSubmitting ? "Validating..." : "Analyze Game"}
+            {isAnalyzing
+              ? "Analysis in Progress..."
+              : isSubmitting
+              ? "Validating..."
+              : "Analyze Game"}
           </button>
         </div>
       </form>

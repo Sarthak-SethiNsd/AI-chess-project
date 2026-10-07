@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import PgnInput from "@/components/PgnInput";
 import ChessBoardReplay from "@/components/ChessBoardReplay";
 import AnalysisSummaryPanel from "@/components/AnalysisSummaryPanel";
 import { analyseGame } from "@/lib/gameAnalysis";
 import { categorizeGame } from "@/lib/moveCategorization";
 import { REVIEW_DEPTH_CONFIG } from "@/lib/categoryStyles";
+import { terminateStockfish } from "@/lib/stockfishEngine";
 
 export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
@@ -22,6 +23,9 @@ export default function Home() {
   const [analysisError, setAnalysisError] = useState(null);
   const [categorizedData, setCategorizedData] = useState(null); // { evaluations: Array, summary: Object }
 
+  // Monotonically increasing run ID to prevent race conditions & stale results
+  const analysisRunIdRef = useRef(0);
+
   /**
    * Executes the full Stockfish game evaluation and move categorization pipeline.
    *
@@ -32,6 +36,12 @@ export default function Home() {
    */
   const runGameAnalysis = async (game, depthSetting) => {
     if (!game) return;
+
+    // Invalidate prior running analysis and assign a fresh run ID
+    const currentRunId = ++analysisRunIdRef.current;
+
+    // If an analysis was already in-flight, terminate the engine worker to clear queue
+    terminateStockfish();
 
     setIsAnalyzing(true);
     setAnalysisError(null);
@@ -46,18 +56,36 @@ export default function Home() {
         { depth: depthConfig.depth },
         {
           onProgress: (done, total) => {
-            setAnalysisProgress({ done, total });
+            // Drop progress updates if another analysis run has superseded this one
+            if (analysisRunIdRef.current === currentRunId) {
+              setAnalysisProgress({ done, total });
+            }
           },
         }
       );
 
+      // Discard results if superseded or reset mid-flow
+      if (analysisRunIdRef.current !== currentRunId) {
+        return;
+      }
+
       const categorized = categorizeGame(analysisResult);
+
+      if (analysisRunIdRef.current !== currentRunId) {
+        return;
+      }
+
       setCategorizedData(categorized);
     } catch (err) {
+      if (analysisRunIdRef.current !== currentRunId) {
+        return;
+      }
       console.error("Game analysis error:", err);
       setAnalysisError(err?.message || "An unexpected error occurred during engine analysis.");
     } finally {
-      setIsAnalyzing(false);
+      if (analysisRunIdRef.current === currentRunId) {
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -69,6 +97,10 @@ export default function Home() {
     reviewDepth: depth,
     language,
   }) => {
+    // Invalidate running analysis when a new game is loaded
+    analysisRunIdRef.current++;
+    terminateStockfish();
+
     setLoadedGame(game);
     setUserRating(rating);
     setUserColor(color);
@@ -82,6 +114,10 @@ export default function Home() {
   };
 
   const handleReset = () => {
+    // Invalidate running analysis and stop the engine
+    analysisRunIdRef.current++;
+    terminateStockfish();
+
     setLoadedGame(null);
     setUserRating(null);
     setUserColor("white");
@@ -119,7 +155,7 @@ export default function Home() {
 
         {/* Input Section */}
         <section className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-6 sm:p-8">
-          <PgnInput onGameLoaded={handleGameLoaded} />
+          <PgnInput onGameLoaded={handleGameLoaded} isAnalyzing={isAnalyzing} />
         </section>
 
         {/* Analysis Progress Loading State */}
