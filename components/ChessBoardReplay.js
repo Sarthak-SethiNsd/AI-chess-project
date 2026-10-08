@@ -4,18 +4,28 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { Chessboard } from "react-chessboard";
 import { getFenAt } from "@/lib/chessEngine";
 import { getCategoryConfig } from "@/lib/categoryStyles";
+import MoveExplanationCard from "@/components/MoveExplanationCard";
 
 export default function ChessBoardReplay({
   game,
   orientation = "white",
   categorizedEvaluations = [],
+  userRating = null,
+  explanationLanguage = "English",
 }) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
 
-  // Reset to start position if a new game is loaded
+  // AI Explanation cache: { [moveIndex]: ExplanationData }
+  const [explanationsCache, setExplanationsCache] = useState({});
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [explainError, setExplainError] = useState(null);
+
+  // Reset state if a new game is loaded
   useEffect(() => {
     setCurrentMoveIndex(-1);
+    setExplanationsCache({});
+    setExplainError(null);
   }, [game]);
 
   const totalMoves = game?.totalMoves || 0;
@@ -79,6 +89,57 @@ export default function ChessBoardReplay({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleFirst, handlePrev, handleNext, handleLast]);
 
+  // AI Move Explanation Fetcher with in-component caching
+  const handleExplainMove = async (targetIndex = currentMoveIndex) => {
+    if (targetIndex < 0 || !categorizedEvaluations?.length || !categorizedEvaluations[targetIndex]) {
+      return;
+    }
+
+    // Return immediately if already cached
+    if (explanationsCache[targetIndex]) {
+      return;
+    }
+
+    const moveEval = categorizedEvaluations[targetIndex];
+    setIsExplaining(true);
+    setExplainError(null);
+
+    try {
+      const payload = {
+        fenBefore: moveEval.fenBefore,
+        fenAfter: moveEval.fenAfter,
+        moveSan: moveEval.moveSan || game?.moves?.[targetIndex]?.san,
+        bestMoveSan: moveEval.evalBefore?.bestMove?.san || moveEval.moveSan,
+        category: moveEval.category || "Good",
+        evalDrop: moveEval.evalDrop || 0,
+        userRating,
+        explanationLanguage,
+      };
+
+      const res = await fetch("/api/explain-move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      setExplanationsCache((prev) => ({
+        ...prev,
+        [targetIndex]: data,
+      }));
+    } catch (err) {
+      console.error("AI Move explanation error:", err);
+      setExplainError(err?.message || "Failed to generate explanation. Please try again.");
+    } finally {
+      setIsExplaining(false);
+    }
+  };
+
   // Group moves into turns for side-by-side moves table (White / Black)
   const movePairs = useMemo(() => {
     if (!game?.moves) return [];
@@ -96,6 +157,8 @@ export default function ChessBoardReplay({
   }, [game]);
 
   if (!game) return null;
+
+  const isHindi = (explanationLanguage || "").toLowerCase().includes("hindi");
 
   return (
     <div className="w-full bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 lg:p-8 space-y-6">
@@ -279,6 +342,21 @@ export default function ChessBoardReplay({
               <span>▶|</span>
             </button>
           </div>
+
+          {/* AI Move Coaching Explanation Card */}
+          {currentMoveIndex >= 0 && (
+            <MoveExplanationCard
+              moveIndex={currentMoveIndex}
+              moveSan={currentMove?.san}
+              category={currentMoveEval?.category}
+              explanation={explanationsCache[currentMoveIndex]}
+              isLoading={isExplaining}
+              error={explainError}
+              onExplainClick={() => handleExplainMove(currentMoveIndex)}
+              explanationLanguage={explanationLanguage}
+              userRating={userRating}
+            />
+          )}
         </div>
 
         {/* Moves Navigation Sidebar */}
@@ -304,9 +382,11 @@ export default function ChessBoardReplay({
             {movePairs.map((pair) => {
               const whiteEval = categorizedEvaluations?.[pair.whiteIndex];
               const whiteConfig = whiteEval?.category ? getCategoryConfig(whiteEval.category) : null;
+              const whiteHasExplanation = !!explanationsCache[pair.whiteIndex];
 
               const blackEval = pair.black ? categorizedEvaluations?.[pair.blackIndex] : null;
               const blackConfig = blackEval?.category ? getCategoryConfig(blackEval.category) : null;
+              const blackHasExplanation = pair.black ? !!explanationsCache[pair.blackIndex] : false;
 
               const isWhiteSelected = currentMoveIndex === pair.whiteIndex;
               const isBlackSelected = currentMoveIndex === pair.blackIndex;
@@ -330,7 +410,14 @@ export default function ChessBoardReplay({
                         : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800"
                     }`}
                   >
-                    <span className="truncate">{pair.white.san}</span>
+                    <span className="flex items-center gap-1 truncate">
+                      <span>{pair.white.san}</span>
+                      {whiteHasExplanation && (
+                        <span className="text-[10px]" title="AI explanation cached">
+                          💡
+                        </span>
+                      )}
+                    </span>
                     {whiteConfig && (
                       <span
                         className={`inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-bold border transition-colors ${
@@ -356,7 +443,14 @@ export default function ChessBoardReplay({
                           : "text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800"
                       }`}
                     >
-                      <span className="truncate">{pair.black.san}</span>
+                      <span className="flex items-center gap-1 truncate">
+                        <span>{pair.black.san}</span>
+                        {blackHasExplanation && (
+                          <span className="text-[10px]" title="AI explanation cached">
+                            💡
+                          </span>
+                        )}
+                      </span>
                       {blackConfig && (
                         <span
                           className={`inline-flex items-center justify-center px-1.5 py-0.2 rounded text-[10px] font-bold border transition-colors ${

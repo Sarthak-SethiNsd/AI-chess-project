@@ -348,6 +348,8 @@ export default function Home() {
                 game={loadedGame}
                 orientation={userColor}
                 categorizedEvaluations={categorizedData?.evaluations || []}
+                userRating={userRating}
+                explanationLanguage={explanationLanguage}
               />
             </section>
           </div>
