@@ -12,6 +12,7 @@ export default function ChessBoardReplay({
   categorizedEvaluations = [],
   userRating = null,
   explanationLanguage = "English",
+  onPositionChange = null,
 }) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -20,6 +21,11 @@ export default function ChessBoardReplay({
   const [explanationsCache, setExplanationsCache] = useState({});
   const [isExplaining, setIsExplaining] = useState(false);
   const [explainError, setExplainError] = useState(null);
+
+  // Notify parent of position change (-1 = start position, i = after move i)
+  useEffect(() => {
+    onPositionChange?.(currentMoveIndex);
+  }, [currentMoveIndex, onPositionChange]);
 
   // Reset state if a new game is loaded
   useEffect(() => {

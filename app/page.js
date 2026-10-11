@@ -1,13 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import PgnInput from "@/components/PgnInput";
 import ChessBoardReplay from "@/components/ChessBoardReplay";
 import AnalysisSummaryPanel from "@/components/AnalysisSummaryPanel";
+import EvalGraph from "@/components/EvalGraph";
 import { analyseGame } from "@/lib/gameAnalysis";
 import { categorizeGame } from "@/lib/moveCategorization";
 import { REVIEW_DEPTH_CONFIG } from "@/lib/categoryStyles";
 import { terminateStockfish } from "@/lib/stockfishEngine";
+import { buildEvalSeries } from "@/lib/evalSeries";
 
 export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
@@ -22,6 +24,15 @@ export default function Home() {
   const [analysisProgress, setAnalysisProgress] = useState(null); // { done: number, total: number }
   const [analysisError, setAnalysisError] = useState(null);
   const [categorizedData, setCategorizedData] = useState(null); // { evaluations: Array, summary: Object }
+  const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
+
+  // Memoized evaluation series: recomputed only when categorized evaluations change
+  const evalSeries = useMemo(() => {
+    if (!categorizedData?.evaluations?.length) {
+      return [];
+    }
+    return buildEvalSeries(categorizedData.evaluations);
+  }, [categorizedData]);
 
   // Monotonically increasing run ID to prevent race conditions & stale results
   const analysisRunIdRef = useRef(0);
@@ -46,6 +57,7 @@ export default function Home() {
     setIsAnalyzing(true);
     setAnalysisError(null);
     setCategorizedData(null);
+    setCurrentPositionIndex(0);
     setAnalysisProgress({ done: 0, total: game.totalMoves + 1 });
 
     try {
@@ -108,6 +120,7 @@ export default function Home() {
     const selectedDepth = depth || "Standard";
     setReviewDepth(selectedDepth);
     setExplanationLanguage(language || "English");
+    setCurrentPositionIndex(0);
 
     // Automatically trigger full game analysis when loaded
     runGameAnalysis(game, selectedDepth);
@@ -128,6 +141,7 @@ export default function Home() {
     setAnalysisProgress(null);
     setAnalysisError(null);
     setCategorizedData(null);
+    setCurrentPositionIndex(0);
   };
 
   const progressPercent =
@@ -343,13 +357,29 @@ export default function Home() {
             )}
 
             {/* Interactive Chessboard Replay with User Orientation and Move Quality Badges */}
-            <section>
+            <section className="space-y-4">
+              {/* Evaluation Graph: only rendered when analysis is complete and has at least one move */}
+              {categorizedData?.evaluations?.length > 0 && !isAnalyzing && !analysisError && (
+                <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-sm border border-zinc-200 dark:border-zinc-800 p-4 sm:p-6 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      Evaluation Graph
+                    </h3>
+                    <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-mono">
+                      White advantage ▲ / Black advantage ▼
+                    </span>
+                  </div>
+                  <EvalGraph series={evalSeries} currentIndex={currentPositionIndex} />
+                </div>
+              )}
+
               <ChessBoardReplay
                 game={loadedGame}
                 orientation={userColor}
                 categorizedEvaluations={categorizedData?.evaluations || []}
                 userRating={userRating}
                 explanationLanguage={explanationLanguage}
+                onPositionChange={(moveIdx) => setCurrentPositionIndex(moveIdx + 1)}
               />
             </section>
           </div>
