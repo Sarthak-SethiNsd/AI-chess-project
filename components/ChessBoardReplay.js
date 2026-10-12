@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Chessboard } from "react-chessboard";
 import { getFenAt } from "@/lib/chessEngine";
 import { getCategoryConfig } from "@/lib/categoryStyles";
@@ -13,6 +13,7 @@ export default function ChessBoardReplay({
   userRating = null,
   explanationLanguage = "English",
   onPositionChange = null,
+  jumpToIndex = undefined,
 }) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -33,6 +34,23 @@ export default function ChessBoardReplay({
     setExplanationsCache({});
     setExplainError(null);
   }, [game]);
+
+  // External jump: when jumpToIndex changes to a valid integer, jump to that move.
+  // A ref tracks the last-applied value so we skip the initial undefined/null and
+  // do NOT fire on game resets (which set the prop back to undefined in the parent).
+  const lastAppliedJump = useRef(undefined);
+  useEffect(() => {
+    if (
+      typeof jumpToIndex === "number" &&
+      Number.isInteger(jumpToIndex) &&
+      jumpToIndex !== lastAppliedJump.current
+    ) {
+      lastAppliedJump.current = jumpToIndex;
+      const totalMov = game?.totalMoves || 0;
+      const clamped = Math.max(-1, Math.min(totalMov - 1, jumpToIndex));
+      setCurrentMoveIndex(clamped);
+    }
+  }, [jumpToIndex, game]);
 
   const totalMoves = game?.totalMoves || 0;
   const isAtStart = currentMoveIndex <= -1;

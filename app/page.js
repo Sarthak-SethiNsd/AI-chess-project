@@ -25,6 +25,7 @@ export default function Home() {
   const [analysisError, setAnalysisError] = useState(null);
   const [categorizedData, setCategorizedData] = useState(null); // { evaluations: Array, summary: Object }
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
+  const [jumpToIndex, setJumpToIndex] = useState(undefined);
 
   // Memoized evaluation series: recomputed only when categorized evaluations change
   const evalSeries = useMemo(() => {
@@ -58,6 +59,7 @@ export default function Home() {
     setAnalysisError(null);
     setCategorizedData(null);
     setCurrentPositionIndex(0);
+    setJumpToIndex(undefined);
     setAnalysisProgress({ done: 0, total: game.totalMoves + 1 });
 
     try {
@@ -121,6 +123,7 @@ export default function Home() {
     setReviewDepth(selectedDepth);
     setExplanationLanguage(language || "English");
     setCurrentPositionIndex(0);
+    setJumpToIndex(undefined);
 
     // Automatically trigger full game analysis when loaded
     runGameAnalysis(game, selectedDepth);
@@ -142,6 +145,7 @@ export default function Home() {
     setAnalysisError(null);
     setCategorizedData(null);
     setCurrentPositionIndex(0);
+    setJumpToIndex(undefined);
   };
 
   const progressPercent =
@@ -369,7 +373,11 @@ export default function Home() {
                       White advantage ▲ / Black advantage ▼
                     </span>
                   </div>
-                  <EvalGraph series={evalSeries} currentIndex={currentPositionIndex} />
+                  <EvalGraph
+                    series={evalSeries}
+                    currentIndex={currentPositionIndex}
+                    onSelectIndex={(seriesIndex) => setJumpToIndex(seriesIndex - 1)}
+                  />
                 </div>
               )}
 
@@ -380,6 +388,7 @@ export default function Home() {
                 userRating={userRating}
                 explanationLanguage={explanationLanguage}
                 onPositionChange={(moveIdx) => setCurrentPositionIndex(moveIdx + 1)}
+                jumpToIndex={jumpToIndex}
               />
             </section>
           </div>
