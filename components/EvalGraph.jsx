@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useMemo } from "react";
 import { getGraphPoints, buildLinePath, getMidlineY } from "@/lib/evalGraphGeometry";
 import { EVAL_CLAMP_CP } from "@/lib/evalSeries";
 import {
@@ -8,6 +8,7 @@ import {
   formatEvalText,
   formatPointLabel,
 } from "@/lib/evalGraphInteraction";
+import { getMarkerPoints } from "@/lib/evalGraphMarkers";
 
 /**
  * EvalGraph — SVG evaluation graph for a chess game review.
@@ -29,6 +30,16 @@ const PADDING = 8;
 
 const LAYOUT = { width: VIEW_WIDTH, height: VIEW_HEIGHT, padding: PADDING };
 
+// Category marker color palette derived directly from lib/categoryStyles.js:
+// Brilliant: bg-cyan-500 (#06b6d4)
+// Mistake:   bg-orange-500 (#f97316)
+// Blunder:   bg-red-500 (#ef4444)
+const CATEGORY_COLORS = {
+  Brilliant: { fill: "#06b6d4", stroke: "#083344" },
+  Mistake: { fill: "#f97316", stroke: "#431407" },
+  Blunder: { fill: "#ef4444", stroke: "#450a0a" },
+};
+
 export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
   const containerRef = useRef(null);
 
@@ -41,8 +52,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
   if (!isValidSeries) {
     return (
       <div
-        className="w-full flex items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 text-xs font-medium select-none"
-        style={{ height: VIEW_HEIGHT }}
+        className="w-full flex items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-400 dark:text-zinc-500 text-xs font-medium select-none min-h-[140px] max-h-[180px] h-[160px]"
         role="img"
         aria-label="No evaluation data available"
       >
@@ -54,6 +64,24 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
   const midY = getMidlineY(LAYOUT);
   const points = getGraphPoints(series, LAYOUT);
   const linePath = buildLinePath(points);
+
+  // Category markers (Brilliant, Mistake, Blunder)
+  const markerPoints = useMemo(() => {
+    return getMarkerPoints(series, points);
+  }, [series, points]);
+
+  // Screen reader counts for blunders, mistakes, brilliant moves
+  const categoryCounts = useMemo(() => {
+    const counts = { Blunder: 0, Mistake: 0, Brilliant: 0 };
+    markerPoints.forEach((m) => {
+      if (counts[m.category] !== undefined) {
+        counts[m.category]++;
+      }
+    });
+    return counts;
+  }, [markerPoints]);
+
+  const ariaDescription = `Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: ${categoryCounts.Blunder} blunders, ${categoryCounts.Mistake} mistakes, ${categoryCounts.Brilliant} brilliant moves.`;
 
   // Validate currentIndex — must be an integer in [0, series.length - 1]
   const hasMarker =
@@ -91,7 +119,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
     if (!el) return null;
     const rect = el.getBoundingClientRect();
     if (rect.width === 0) return null;
-    // Scale from container pixels → viewBox coordinates
+    // Linear horizontal scale from container pixels -> viewBox coordinates
     return ((clientX - rect.left) / rect.width) * VIEW_WIDTH;
   }
 
@@ -123,24 +151,29 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
   // ----------------------------------------------------------------
   // Tooltip positioning
   // ----------------------------------------------------------------
-  // Tooltip is an HTML element positioned absolutely over the container.
-  // We compute left/right offset from the hover point's x in viewBox space,
-  // converted back to a percentage of the container width.
+  // Keep tooltip strictly inside the container bounds horizontally:
+  // On left edge (xPct < 20%): anchor left-aligned with a safe offset.
+  // On right edge (xPct > 80%): anchor right-aligned with a safe offset.
+  // Otherwise: center or anchor away from the cursor.
   let tooltipStyle = null;
   if (hasHover && hoverPoint) {
     const xPct = (hoverPoint.x / VIEW_WIDTH) * 100;
-    // If the hover point is in the right half, anchor tooltip to the left of cursor
-    const isRightHalf = xPct > 50;
-    tooltipStyle = isRightHalf
-      ? { right: `${100 - xPct}%`, left: "auto" }
-      : { left: `${xPct}%`, right: "auto" };
+    if (xPct <= 20) {
+      tooltipStyle = { left: "4px", right: "auto", transform: "none" };
+    } else if (xPct >= 80) {
+      tooltipStyle = { right: "4px", left: "auto", transform: "none" };
+    } else if (xPct > 50) {
+      tooltipStyle = { right: `${100 - xPct}%`, left: "auto", transform: "none" };
+    } else {
+      tooltipStyle = { left: `${xPct}%`, right: "auto", transform: "none" };
+    }
   }
 
   return (
     <div
       ref={containerRef}
       className={[
-        "relative w-full select-none",
+        "relative w-full max-w-full select-none overflow-hidden",
         typeof onSelectIndex === "function" ? "cursor-pointer" : "",
       ]
         .filter(Boolean)
@@ -154,12 +187,12 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
       {/* Tooltip: HTML overlay, not SVG text */}
       {hasHover && hoverData && tooltipStyle && (
         <div
-          className="pointer-events-none absolute bottom-full mb-1.5 z-10 bg-zinc-900 dark:bg-zinc-800 text-zinc-100 rounded-md shadow-lg px-2.5 py-1.5 text-[11px] leading-snug whitespace-nowrap border border-zinc-700 dark:border-zinc-600"
+          className="pointer-events-none absolute bottom-full mb-1.5 z-20 bg-zinc-900/95 dark:bg-zinc-800/95 backdrop-blur-sm text-zinc-100 rounded-md shadow-lg px-2.5 py-1.5 text-[11px] leading-snug whitespace-nowrap border border-zinc-700 dark:border-zinc-600 max-w-[calc(100%-8px)]"
           style={tooltipStyle}
           aria-hidden="true"
         >
           <div className="font-semibold text-zinc-200">{formatPointLabel(hoverData)}</div>
-          <div className="font-mono text-indigo-300">{formatEvalText(hoverData)}</div>
+          <div className="font-mono font-medium text-indigo-300">{formatEvalText(hoverData)}</div>
           {hoverData.category && (
             <div className="text-zinc-400 capitalize">{hoverData.category}</div>
           )}
@@ -171,8 +204,8 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
         width="100%"
         preserveAspectRatio="none"
         role="img"
-        aria-label="Evaluation graph: White advantage shown above center, Black advantage below"
-        className="block w-full rounded-lg overflow-hidden bg-zinc-900 dark:bg-zinc-950"
+        aria-label={ariaDescription}
+        className="block w-full rounded-lg overflow-hidden bg-zinc-900 dark:bg-zinc-950 min-h-[120px] sm:min-h-[140px] max-h-[180px] h-[160px]"
         style={{ display: "block" }}
       >
         {/* Definitions: clip paths for white/black fill areas */}
@@ -188,7 +221,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
         </defs>
 
         {/* Background: dark board-like split */}
-        {/* Upper half — very subtle white tint */}
+        {/* Upper half — subtle white tint */}
         <rect
           x={0}
           y={PADDING}
@@ -197,7 +230,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
           className="fill-zinc-800 dark:fill-zinc-900"
           opacity={0.5}
         />
-        {/* Lower half — very subtle black tint */}
+        {/* Lower half — subtle black tint */}
         <rect
           x={0}
           y={midY}
@@ -233,6 +266,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
           y2={midY}
           strokeWidth={1}
           strokeDasharray="3 3"
+          vectorEffect="non-scaling-stroke"
           className="stroke-zinc-500 dark:stroke-zinc-600"
         />
 
@@ -244,9 +278,28 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
             strokeWidth={2}
             strokeLinejoin="round"
             strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
             className="stroke-indigo-400 dark:stroke-indigo-400"
           />
         )}
+
+        {/* Category Markers: Brilliant, Mistake, Blunder (pointer-events: none, small circles) */}
+        {markerPoints.map((m) => {
+          const color = CATEGORY_COLORS[m.category] || { fill: "#71717a", stroke: "#18181b" };
+          return (
+            <circle
+              key={`marker-${m.index}`}
+              cx={m.x}
+              cy={m.y}
+              r={2.5}
+              fill={color.fill}
+              stroke={color.stroke}
+              strokeWidth={1}
+              style={{ pointerEvents: "none" }}
+              aria-hidden="true"
+            />
+          );
+        })}
 
         {/* Hover guide line — distinct from amber marker */}
         {hoverPoint && (
@@ -256,19 +309,22 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
             x2={hoverPoint.x}
             y2={VIEW_HEIGHT - PADDING}
             strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
             className="stroke-sky-400/60 dark:stroke-sky-300/50"
+            style={{ pointerEvents: "none" }}
           />
         )}
 
         {/* Current position marker — amber vertical line + dot */}
         {markerPoint && (
-          <>
+          <g style={{ pointerEvents: "none" }}>
             <line
               x1={markerPoint.x}
               y1={PADDING}
               x2={markerPoint.x}
               y2={VIEW_HEIGHT - PADDING}
               strokeWidth={1.5}
+              vectorEffect="non-scaling-stroke"
               className="stroke-amber-400 dark:stroke-amber-400"
               opacity={0.85}
             />
@@ -279,7 +335,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
               strokeWidth={2}
               className="fill-amber-400 stroke-zinc-900 dark:fill-amber-400 dark:stroke-zinc-950"
             />
-          </>
+          </g>
         )}
 
         {/* Hover dot on the eval line */}
@@ -290,6 +346,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
             r={3}
             strokeWidth={1.5}
             className="fill-sky-400 stroke-zinc-900 dark:fill-sky-300 dark:stroke-zinc-950"
+            style={{ pointerEvents: "none" }}
           />
         )}
 

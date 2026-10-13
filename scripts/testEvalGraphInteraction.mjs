@@ -149,8 +149,8 @@ assert(
 
 // Active mate for White (whiteScore > 0, mateIn > 0 in UCI: side-to-move is mating)
 assert(
-  formatEvalText({ isMate: true, mateIn: 3, whiteScore: 3 }) === "M3",
-  "Active mate for White mateIn=3 → 'M3'"
+  formatEvalText({ isMate: true, mateIn: 3, whiteScore: 3 }) === "+M3",
+  "Active mate for White mateIn=3 → '+M3'"
 );
 
 // Active mate for Black (whiteScore < 0, mateIn < 0 in UCI: side-to-move is being mated... actually
@@ -159,8 +159,8 @@ assert(
 // For Black delivering mate: if it's Black's turn and they're mating, UCI value > 0,
 // but whiteScore = -value (since turn='b'). So mateIn could be negative when White is being mated.
 assert(
-  formatEvalText({ isMate: true, mateIn: -2, whiteScore: -2 }) === "M2",
-  "Active mate for Black mateIn=-2, abs → 'M2'"
+  formatEvalText({ isMate: true, mateIn: -2, whiteScore: -2 }) === "-M2",
+  "Active mate for Black mateIn=-2, abs → '-M2'"
 );
 
 // Delivered checkmate by White (mateIn = 0, whiteScore = 999)

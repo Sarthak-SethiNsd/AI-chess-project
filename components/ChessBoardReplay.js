@@ -13,7 +13,7 @@ export default function ChessBoardReplay({
   userRating = null,
   explanationLanguage = "English",
   onPositionChange = null,
-  jumpToIndex = undefined,
+  jumpRequest = null,
 }) {
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
@@ -35,22 +35,23 @@ export default function ChessBoardReplay({
     setExplainError(null);
   }, [game]);
 
-  // External jump: when jumpToIndex changes to a valid integer, jump to that move.
-  // A ref tracks the last-applied value so we skip the initial undefined/null and
-  // do NOT fire on game resets (which set the prop back to undefined in the parent).
-  const lastAppliedJump = useRef(undefined);
+  // External jump: when jumpRequest has a valid moveIndex and a new id, jump to that move.
+  // A ref tracks the last applied request ID so repeated requests to the same moveIndex
+  // (e.g. clicking point 5, moving with arrows, then clicking point 5 again) work reliably.
+  const lastAppliedRequestId = useRef(null);
   useEffect(() => {
     if (
-      typeof jumpToIndex === "number" &&
-      Number.isInteger(jumpToIndex) &&
-      jumpToIndex !== lastAppliedJump.current
+      jumpRequest &&
+      typeof jumpRequest.moveIndex === "number" &&
+      Number.isInteger(jumpRequest.moveIndex) &&
+      jumpRequest.id !== lastAppliedRequestId.current
     ) {
-      lastAppliedJump.current = jumpToIndex;
+      lastAppliedRequestId.current = jumpRequest.id;
       const totalMov = game?.totalMoves || 0;
-      const clamped = Math.max(-1, Math.min(totalMov - 1, jumpToIndex));
+      const clamped = Math.max(-1, Math.min(totalMov - 1, jumpRequest.moveIndex));
       setCurrentMoveIndex(clamped);
     }
-  }, [jumpToIndex, game]);
+  }, [jumpRequest, game]);
 
   const totalMoves = game?.totalMoves || 0;
   const isAtStart = currentMoveIndex <= -1;

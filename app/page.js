@@ -25,7 +25,8 @@ export default function Home() {
   const [analysisError, setAnalysisError] = useState(null);
   const [categorizedData, setCategorizedData] = useState(null); // { evaluations: Array, summary: Object }
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
-  const [jumpToIndex, setJumpToIndex] = useState(undefined);
+  const [jumpRequest, setJumpRequest] = useState(null);
+  const jumpRequestIdRef = useRef(0);
 
   // Memoized evaluation series: recomputed only when categorized evaluations change
   const evalSeries = useMemo(() => {
@@ -59,7 +60,7 @@ export default function Home() {
     setAnalysisError(null);
     setCategorizedData(null);
     setCurrentPositionIndex(0);
-    setJumpToIndex(undefined);
+    setJumpRequest(null);
     setAnalysisProgress({ done: 0, total: game.totalMoves + 1 });
 
     try {
@@ -123,7 +124,7 @@ export default function Home() {
     setReviewDepth(selectedDepth);
     setExplanationLanguage(language || "English");
     setCurrentPositionIndex(0);
-    setJumpToIndex(undefined);
+    setJumpRequest(null);
 
     // Automatically trigger full game analysis when loaded
     runGameAnalysis(game, selectedDepth);
@@ -145,7 +146,7 @@ export default function Home() {
     setAnalysisError(null);
     setCategorizedData(null);
     setCurrentPositionIndex(0);
-    setJumpToIndex(undefined);
+    setJumpRequest(null);
   };
 
   const progressPercent =
@@ -376,7 +377,12 @@ export default function Home() {
                   <EvalGraph
                     series={evalSeries}
                     currentIndex={currentPositionIndex}
-                    onSelectIndex={(seriesIndex) => setJumpToIndex(seriesIndex - 1)}
+                    onSelectIndex={(seriesIndex) => {
+                      setJumpRequest({
+                        moveIndex: seriesIndex - 1,
+                        id: ++jumpRequestIdRef.current,
+                      });
+                    }}
                   />
                 </div>
               )}
@@ -388,7 +394,7 @@ export default function Home() {
                 userRating={userRating}
                 explanationLanguage={explanationLanguage}
                 onPositionChange={(moveIdx) => setCurrentPositionIndex(moveIdx + 1)}
-                jumpToIndex={jumpToIndex}
+                jumpRequest={jumpRequest}
               />
             </section>
           </div>
