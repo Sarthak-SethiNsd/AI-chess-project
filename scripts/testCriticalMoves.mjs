@@ -7,6 +7,7 @@ import {
   findCriticalMoves,
   getNextCriticalMove,
   getPrevCriticalMove,
+  getCriticalNavState,
 } from "../lib/criticalMoves.js";
 
 // ----------------------------------------------------------------
@@ -337,6 +338,166 @@ assert(
 assert(
   JSON.stringify(sampleCriticalMoves) === sampleSnapshot,
   "getNextCriticalMove and getPrevCriticalMove do not mutate the input array"
+);
+
+// ----------------------------------------------------------------
+// Section 3.5: getCriticalNavState
+// ----------------------------------------------------------------
+console.log("\n[Test Suite 3.5] getCriticalNavState Comprehensive Edge Cases");
+
+// 1. Start position (currentMoveIndex = -1)
+{
+  const state = getCriticalNavState(sampleCriticalMoves, -1);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === false &&
+      state.prev === null &&
+      state.canNext === true &&
+      state.next !== null &&
+      state.next.moveIndex === 2,
+    "getCriticalNavState from -1 (start) returns { canPrev: false, canNext: true, next: 2 }"
+  );
+}
+
+// 2. On a critical move itself (e.g. index 2) - must skip it
+{
+  const state = getCriticalNavState(sampleCriticalMoves, 2);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === false &&
+      state.prev === null &&
+      state.canNext === true &&
+      state.next !== null &&
+      state.next.moveIndex === 5,
+    "getCriticalNavState on first critical move (2) skips it: canPrev: false, next is 5"
+  );
+}
+
+// 3. Between two critical moves (e.g. index 3 or 4)
+{
+  const state = getCriticalNavState(sampleCriticalMoves, 4);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === true &&
+      state.prev !== null &&
+      state.prev.moveIndex === 2 &&
+      state.canNext === true &&
+      state.next !== null &&
+      state.next.moveIndex === 5,
+    "getCriticalNavState between critical moves (4) returns prev: 2 and next: 5"
+  );
+}
+
+// 4. On a middle critical move (e.g. index 5)
+{
+  const state = getCriticalNavState(sampleCriticalMoves, 5);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === true &&
+      state.prev !== null &&
+      state.prev.moveIndex === 2 &&
+      state.canNext === true &&
+      state.next !== null &&
+      state.next.moveIndex === 8,
+    "getCriticalNavState on middle critical move (5) skips it: prev is 2, next is 8"
+  );
+}
+
+// 5. At the last critical move (e.g. index 8)
+{
+  const state = getCriticalNavState(sampleCriticalMoves, 8);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === true &&
+      state.prev !== null &&
+      state.prev.moveIndex === 5 &&
+      state.canNext === false &&
+      state.next === null,
+    "getCriticalNavState at the last critical move (8) returns prev: 5, canNext: false"
+  );
+}
+
+// 6. Before the first critical move (e.g. index 0)
+{
+  const state = getCriticalNavState(sampleCriticalMoves, 0);
+  assert(
+    state.hasAny === true &&
+      state.canPrev === false &&
+      state.prev === null &&
+      state.canNext === true &&
+      state.next !== null &&
+      state.next.moveIndex === 2,
+    "getCriticalNavState before first critical move (0) returns prev: null, next: 2"
+  );
+}
+
+// 7. Empty list
+{
+  const state = getCriticalNavState([], 0);
+  assert(
+    state.hasAny === false &&
+      state.canPrev === false &&
+      state.prev === null &&
+      state.canNext === false &&
+      state.next === null,
+    "getCriticalNavState on empty array returns hasAny: false, canPrev: false, canNext: false"
+  );
+}
+
+// 8. Null / non-array criticalMoves input
+{
+  const stateNull = getCriticalNavState(null, 0);
+  const stateUndef = getCriticalNavState(undefined, 0);
+  const stateStr = getCriticalNavState("not-an-array", 0);
+  const stateObj = getCriticalNavState({}, 0);
+
+  const isAllEmpty = (s) =>
+    s.hasAny === false &&
+    s.canPrev === false &&
+    s.prev === null &&
+    s.canNext === false &&
+    s.next === null;
+
+  assert(
+    isAllEmpty(stateNull) &&
+      isAllEmpty(stateUndef) &&
+      isAllEmpty(stateStr) &&
+      isAllEmpty(stateObj),
+    "getCriticalNavState returns all false/null when criticalMoves is null, undefined, or non-array"
+  );
+}
+
+// 9. Invalid currentMoveIndex (NaN, non-integer, string, null, undefined)
+{
+  const stateNaN = getCriticalNavState(sampleCriticalMoves, NaN);
+  const stateNull = getCriticalNavState(sampleCriticalMoves, null);
+  const stateUndef = getCriticalNavState(sampleCriticalMoves, undefined);
+  const stateStr = getCriticalNavState(sampleCriticalMoves, "2");
+  const stateFloat = getCriticalNavState(sampleCriticalMoves, 2.5);
+  const stateInf = getCriticalNavState(sampleCriticalMoves, Infinity);
+
+  const isInvalidResult = (s) =>
+    s.hasAny === false &&
+    s.canPrev === false &&
+    s.prev === null &&
+    s.canNext === false &&
+    s.next === null;
+
+  assert(
+    isInvalidResult(stateNaN) &&
+      isInvalidResult(stateNull) &&
+      isInvalidResult(stateUndef) &&
+      isInvalidResult(stateStr) &&
+      isInvalidResult(stateFloat) &&
+      isInvalidResult(stateInf),
+    "getCriticalNavState returns all false/null when currentMoveIndex is NaN, null, string, float, or Infinity"
+  );
+}
+
+// 10. Immutability check
+assert(
+  JSON.stringify(sampleCriticalMoves) === sampleSnapshot,
+  "getCriticalNavState does not mutate the input array or its objects"
 );
 
 // ----------------------------------------------------------------

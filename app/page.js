@@ -10,6 +10,8 @@ import { categorizeGame } from "@/lib/moveCategorization";
 import { REVIEW_DEPTH_CONFIG } from "@/lib/categoryStyles";
 import { terminateStockfish } from "@/lib/stockfishEngine";
 import { buildEvalSeries } from "@/lib/evalSeries";
+import CriticalMovesNav from "@/components/CriticalMovesNav";
+import { findCriticalMoves } from "@/lib/criticalMoves";
 
 export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
@@ -34,6 +36,14 @@ export default function Home() {
       return [];
     }
     return buildEvalSeries(categorizedData.evaluations);
+  }, [categorizedData]);
+
+  // Memoized critical moves: recomputed only when categorized evaluations change
+  const criticalMoves = useMemo(() => {
+    if (!categorizedData?.evaluations?.length) {
+      return [];
+    }
+    return findCriticalMoves(categorizedData.evaluations);
   }, [categorizedData]);
 
   // Monotonically increasing run ID to prevent race conditions & stale results
@@ -380,6 +390,16 @@ export default function Home() {
                     onSelectIndex={(seriesIndex) => {
                       setJumpRequest({
                         moveIndex: seriesIndex - 1,
+                        id: ++jumpRequestIdRef.current,
+                      });
+                    }}
+                  />
+                  <CriticalMovesNav
+                    criticalMoves={criticalMoves}
+                    currentMoveIndex={currentPositionIndex - 1}
+                    onJump={(moveIndex) => {
+                      setJumpRequest({
+                        moveIndex,
                         id: ++jumpRequestIdRef.current,
                       });
                     }}
