@@ -8,6 +8,8 @@ import {
   getNextCriticalMove,
   getPrevCriticalMove,
   getCriticalNavState,
+  getCriticalCounter,
+  normalizeSide,
 } from "../lib/criticalMoves.js";
 
 // ----------------------------------------------------------------
@@ -498,6 +500,129 @@ console.log("\n[Test Suite 3.5] getCriticalNavState Comprehensive Edge Cases");
 assert(
   JSON.stringify(sampleCriticalMoves) === sampleSnapshot,
   "getCriticalNavState does not mutate the input array or its objects"
+);
+
+// ----------------------------------------------------------------
+// Section 3.6: normalizeSide
+// ----------------------------------------------------------------
+console.log("\n[Test Suite 3.6] normalizeSide");
+
+assert(normalizeSide("w") === "w", "normalizeSide('w') returns 'w'");
+assert(normalizeSide("W") === "w", "normalizeSide('W') returns 'w'");
+assert(normalizeSide("white") === "w", "normalizeSide('white') returns 'w'");
+assert(normalizeSide("White") === "w", "normalizeSide('White') returns 'w'");
+assert(normalizeSide("  WHITE  ") === "w", "normalizeSide('  WHITE  ') trims and returns 'w'");
+assert(normalizeSide("b") === "b", "normalizeSide('b') returns 'b'");
+assert(normalizeSide("B") === "b", "normalizeSide('B') returns 'b'");
+assert(normalizeSide("black") === "b", "normalizeSide('black') returns 'b'");
+assert(normalizeSide("Black") === "b", "normalizeSide('Black') returns 'b'");
+assert(normalizeSide("  BLACK  ") === "b", "normalizeSide('  BLACK  ') trims and returns 'b'");
+assert(normalizeSide(null) === null, "normalizeSide(null) returns null");
+assert(normalizeSide(undefined) === null, "normalizeSide(undefined) returns null");
+assert(normalizeSide("") === null, "normalizeSide('') returns null");
+assert(normalizeSide("invalid") === null, "normalizeSide('invalid') returns null");
+assert(normalizeSide(42) === null, "normalizeSide(42) returns null");
+assert(normalizeSide({}) === null, "normalizeSide({}) returns null");
+assert(normalizeSide([]) === null, "normalizeSide([]) returns null");
+
+// ----------------------------------------------------------------
+// Section 3.7: getCriticalCounter
+// ----------------------------------------------------------------
+console.log("\n[Test Suite 3.7] getCriticalCounter");
+
+// Sample fixtures with critical moves at moveIndex 2, 5, 8
+// Notice sampleCriticalMoves is unsorted ([5, 2, 8])
+const counterSnapshot = JSON.stringify(sampleCriticalMoves);
+
+// 1. At start position (-1)
+const counterStart = getCriticalCounter(sampleCriticalMoves, -1);
+assert(
+  counterStart.total === 3 && counterStart.position === null,
+  "getCriticalCounter at start (-1) returns { total: 3, position: null }"
+);
+
+// 2. Exactly on the first critical move (moveIndex 2) -> 1 of 3
+const counterFirst = getCriticalCounter(sampleCriticalMoves, 2);
+assert(
+  counterFirst.total === 3 && counterFirst.position === 1,
+  "getCriticalCounter at moveIndex 2 returns { total: 3, position: 1 } (1-based index)"
+);
+
+// 3. Between critical moves (moveIndex 3) -> null position
+const counterBetween = getCriticalCounter(sampleCriticalMoves, 3);
+assert(
+  counterBetween.total === 3 && counterBetween.position === null,
+  "getCriticalCounter at moveIndex 3 returns { total: 3, position: null }"
+);
+
+// 4. On the second critical move (moveIndex 5) -> 2 of 3
+const counterSecond = getCriticalCounter(sampleCriticalMoves, 5);
+assert(
+  counterSecond.total === 3 && counterSecond.position === 2,
+  "getCriticalCounter at moveIndex 5 returns { total: 3, position: 2 } (1-based index)"
+);
+
+// 5. On the third critical move (moveIndex 8) -> 3 of 3
+const counterThird = getCriticalCounter(sampleCriticalMoves, 8);
+assert(
+  counterThird.total === 3 && counterThird.position === 3,
+  "getCriticalCounter at moveIndex 8 returns { total: 3, position: 3 } (1-based index)"
+);
+
+// 6. After the last critical move (moveIndex 10) -> null position
+const counterAfter = getCriticalCounter(sampleCriticalMoves, 10);
+assert(
+  counterAfter.total === 3 && counterAfter.position === null,
+  "getCriticalCounter at moveIndex 10 returns { total: 3, position: null }"
+);
+
+// 7. Empty array
+const counterEmpty = getCriticalCounter([], 0);
+assert(
+  counterEmpty.total === 0 && counterEmpty.position === null,
+  "getCriticalCounter on [] returns { total: 0, position: null }"
+);
+
+// 8. Null, undefined, non-array inputs
+assert(
+  getCriticalCounter(null, 2).total === 0 && getCriticalCounter(null, 2).position === null,
+  "getCriticalCounter on null array returns { total: 0, position: null }"
+);
+assert(
+  getCriticalCounter(undefined, 2).total === 0 && getCriticalCounter(undefined, 2).position === null,
+  "getCriticalCounter on undefined array returns { total: 0, position: null }"
+);
+assert(
+  getCriticalCounter("not an array", 2).total === 0 && getCriticalCounter("not an array", 2).position === null,
+  "getCriticalCounter on non-array returns { total: 0, position: null }"
+);
+
+// 9. Invalid currentMoveIndex inputs (NaN, null, undefined, string, float)
+assert(
+  getCriticalCounter(sampleCriticalMoves, NaN).total === 3 &&
+    getCriticalCounter(sampleCriticalMoves, NaN).position === null,
+  "getCriticalCounter with NaN currentMoveIndex returns { total: 3, position: null }"
+);
+assert(
+  getCriticalCounter(sampleCriticalMoves, null).total === 3 &&
+    getCriticalCounter(sampleCriticalMoves, null).position === null,
+  "getCriticalCounter with null currentMoveIndex returns { total: 3, position: null }"
+);
+assert(
+  getCriticalCounter(sampleCriticalMoves, "2").total === 3 &&
+    getCriticalCounter(sampleCriticalMoves, "2").position === null,
+  "getCriticalCounter with string currentMoveIndex returns { total: 3, position: null }"
+);
+assert(
+  getCriticalCounter(sampleCriticalMoves, 2.5).total === 3 &&
+    getCriticalCounter(sampleCriticalMoves, 2.5).position === null,
+  "getCriticalCounter with float currentMoveIndex returns { total: 3, position: null }"
+);
+
+// 10. Immutability check
+assert(
+  JSON.stringify(sampleCriticalMoves) === counterSnapshot,
+  "getCriticalCounter does not mutate input array or its objects"
 );
 
 // ----------------------------------------------------------------

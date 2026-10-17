@@ -11,7 +11,7 @@ import { REVIEW_DEPTH_CONFIG } from "@/lib/categoryStyles";
 import { terminateStockfish } from "@/lib/stockfishEngine";
 import { buildEvalSeries } from "@/lib/evalSeries";
 import CriticalMovesNav from "@/components/CriticalMovesNav";
-import { findCriticalMoves } from "@/lib/criticalMoves";
+import { findCriticalMoves, normalizeSide } from "@/lib/criticalMoves";
 
 export default function Home() {
   const [loadedGame, setLoadedGame] = useState(null);
@@ -29,6 +29,8 @@ export default function Home() {
   const [currentPositionIndex, setCurrentPositionIndex] = useState(0);
   const [jumpRequest, setJumpRequest] = useState(null);
   const jumpRequestIdRef = useRef(0);
+  // Toggle: "My mistakes only" — filters nav to the user's color. Resets on every new game/re-analysis/clear.
+  const [myMistakesOnly, setMyMistakesOnly] = useState(false);
 
   // Memoized evaluation series: recomputed only when categorized evaluations change
   const evalSeries = useMemo(() => {
@@ -38,13 +40,24 @@ export default function Home() {
     return buildEvalSeries(categorizedData.evaluations);
   }, [categorizedData]);
 
-  // Memoized critical moves: recomputed only when categorized evaluations change
+  // Total critical moves count across both sides, used for empty state distinction
+  const unfilteredCriticalCount = useMemo(() => {
+    if (!categorizedData?.evaluations?.length) {
+      return 0;
+    }
+    return findCriticalMoves(categorizedData.evaluations).length;
+  }, [categorizedData]);
+
+  // Memoized critical moves: filtered to user's side if myMistakesOnly is ON
   const criticalMoves = useMemo(() => {
     if (!categorizedData?.evaluations?.length) {
       return [];
     }
+    if (myMistakesOnly && normalizeSide(userColor) !== null) {
+      return findCriticalMoves(categorizedData.evaluations, { side: userColor });
+    }
     return findCriticalMoves(categorizedData.evaluations);
-  }, [categorizedData]);
+  }, [categorizedData, myMistakesOnly, userColor]);
 
   // Monotonically increasing run ID to prevent race conditions & stale results
   const analysisRunIdRef = useRef(0);
@@ -71,6 +84,7 @@ export default function Home() {
     setCategorizedData(null);
     setCurrentPositionIndex(0);
     setJumpRequest(null);
+    setMyMistakesOnly(false);
     setAnalysisProgress({ done: 0, total: game.totalMoves + 1 });
 
     try {
@@ -135,6 +149,7 @@ export default function Home() {
     setExplanationLanguage(language || "English");
     setCurrentPositionIndex(0);
     setJumpRequest(null);
+    setMyMistakesOnly(false);
 
     // Automatically trigger full game analysis when loaded
     runGameAnalysis(game, selectedDepth);
@@ -157,6 +172,7 @@ export default function Home() {
     setCategorizedData(null);
     setCurrentPositionIndex(0);
     setJumpRequest(null);
+    setMyMistakesOnly(false);
   };
 
   const progressPercent =
@@ -403,6 +419,10 @@ export default function Home() {
                         id: ++jumpRequestIdRef.current,
                       });
                     }}
+                    userColor={userColor}
+                    myMistakesOnly={myMistakesOnly}
+                    onToggleMyMistakes={() => setMyMistakesOnly((prev) => !prev)}
+                    unfilteredCriticalCount={unfilteredCriticalCount}
                   />
                 </div>
               )}
