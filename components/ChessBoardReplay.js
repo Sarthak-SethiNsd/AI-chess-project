@@ -5,6 +5,8 @@ import { Chessboard } from "react-chessboard";
 import { getFenAt } from "@/lib/chessEngine";
 import { getCategoryConfig } from "@/lib/categoryStyles";
 import MoveExplanationCard from "@/components/MoveExplanationCard";
+import { getCompareData } from "@/lib/bestMoveArrows";
+import { toBoardArrows, getCompareCaption } from "@/lib/compareView";
 
 export default function ChessBoardReplay({
   game,
@@ -18,6 +20,33 @@ export default function ChessBoardReplay({
   // -1 indicates starting position before any moves
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1);
 
+  // Compare mode state
+  const [isComparing, setIsComparing] = useState(false);
+
+  // Derive compare data for the currently selected move
+  const compareData = useMemo(() => {
+    if (currentMoveIndex < 0 || !categorizedEvaluations?.length) {
+      return null;
+    }
+    return getCompareData(categorizedEvaluations, currentMoveIndex);
+  }, [categorizedEvaluations, currentMoveIndex]);
+
+  const canCompare = Boolean(
+    categorizedEvaluations?.length > 0 &&
+    currentMoveIndex >= 0 &&
+    compareData !== null
+  );
+
+  const isCompareActive = Boolean(isComparing && canCompare && compareData);
+
+  const boardArrows = useMemo(() => {
+    return isCompareActive ? toBoardArrows(compareData) : [];
+  }, [isCompareActive, compareData]);
+
+  const compareCaption = useMemo(() => {
+    return isCompareActive ? getCompareCaption(compareData) : "";
+  }, [isCompareActive, compareData]);
+
   // AI Explanation cache: { [moveIndex]: ExplanationData }
   const [explanationsCache, setExplanationsCache] = useState({});
   const [isExplaining, setIsExplaining] = useState(false);
@@ -28,12 +57,23 @@ export default function ChessBoardReplay({
     onPositionChange?.(currentMoveIndex);
   }, [currentMoveIndex, onPositionChange]);
 
-  // Reset state if a new game is loaded
+  // Compare mode ends whenever current move changes by any means (keyboard, click, replay buttons)
+  useEffect(() => {
+    setIsComparing(false);
+  }, [currentMoveIndex]);
+
+  // Reset state if a new game is loaded or cleared
   useEffect(() => {
     setCurrentMoveIndex(-1);
     setExplanationsCache({});
     setExplainError(null);
+    setIsComparing(false);
   }, [game]);
+
+  // Reset compare mode if analysis data changes (re-analysis)
+  useEffect(() => {
+    setIsComparing(false);
+  }, [categorizedEvaluations]);
 
   // External jump: when jumpRequest has a valid moveIndex and a new id, jump to that move.
   // A ref tracks the last applied request ID so repeated requests to the same moveIndex
@@ -233,16 +273,37 @@ export default function ChessBoardReplay({
           <div className="w-full max-w-[440px] aspect-square rounded-xl overflow-hidden shadow-md border border-zinc-200 dark:border-zinc-800 bg-zinc-100 dark:bg-zinc-950">
             <Chessboard
               options={{
-                position: currentFen,
+                position: isCompareActive && compareData?.fenBefore ? compareData.fenBefore : currentFen,
                 allowDragging: false,
                 canDragPiece: () => false,
                 boardOrientation: orientation === "black" ? "black" : "white",
                 boardStyle: {
                   borderRadius: "12px",
                 },
+                arrows: boardArrows,
+                allowDrawingArrows: false,
               }}
             />
           </div>
+
+          {/* Compare Mode Banner & Accessible Caption */}
+          {isCompareActive && (
+            <div className="w-full max-w-[440px] p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-1 text-xs transition-all">
+              <div className="flex items-center justify-between text-amber-800 dark:text-amber-200 font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                  <span>Showing position BEFORE move {currentMove?.moveNumber}{currentMove?.turn === "w" ? ". " : "... "}{currentMove?.san}</span>
+                </span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700">Compare</span>
+              </div>
+              <p
+                aria-live="polite"
+                className="text-amber-900 dark:text-amber-100"
+              >
+                {compareCaption}
+              </p>
+            </div>
+          )}
 
           {/* Board Move Annotation Bar */}
           <div className="w-full max-w-[440px] p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 transition-all">
@@ -320,6 +381,31 @@ export default function ChessBoardReplay({
               </div>
             )}
           </div>
+
+          {/* Compare With Best Move Button */}
+          <button
+            type="button"
+            onClick={() => setIsComparing((prev) => !prev)}
+            disabled={!canCompare}
+            aria-pressed={isCompareActive}
+            title={
+              !canCompare
+                ? isAtStart
+                  ? "Select a move to compare with engine best"
+                  : "Analysis required to compare"
+                : isCompareActive
+                ? "Exit comparison view"
+                : "Compare with engine recommended move"
+            }
+            className={`w-full max-w-[440px] py-2 px-3.5 rounded-xl font-medium text-xs sm:text-sm border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:focus:ring-offset-zinc-900 ${
+              isCompareActive
+                ? "bg-indigo-600 text-white border-indigo-600 font-semibold shadow-xs"
+                : "bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-700 border-zinc-200 dark:border-zinc-700 shadow-xs"
+            }`}
+          >
+            <span aria-hidden="true">⇄</span>
+            <span>{isCompareActive ? "Exit compare mode" : "Compare with best move"}</span>
+          </button>
 
           {/* Replay Controls Toolbar */}
           <div className="w-full max-w-[440px] flex items-center justify-between gap-2 p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700">
