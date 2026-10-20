@@ -2,6 +2,7 @@ import {
   COMPARE_ARROW_COLORS,
   toBoardArrows,
   getCompareCaption,
+  getCompareLegend,
 } from "../lib/compareView.js";
 
 // ----------------------------------------------------------------
@@ -291,6 +292,102 @@ console.log("\n[Test Suite 4] Castling and Promotion Compare Data");
   );
 }
 
+// ================================================================
+// Section 5: getCompareLegend Unit Tests
+// ================================================================
+console.log("\n[Test Suite 5] getCompareLegend");
+
+// Case 1: both differ
+{
+  const mockBothDiffer = {
+    played: { from: "e7", to: "e5", uci: "e7e5" },
+    best: { from: "c7", to: "c5", uci: "c7c5" },
+    sameAsBest: false,
+  };
+  const snapshot = JSON.stringify(mockBothDiffer);
+  const legend = getCompareLegend(mockBothDiffer);
+
+  assert(Array.isArray(legend) && legend.length === 2, "both differ returns 2 legend items");
+  assert(
+    legend[0].kind === "played" &&
+      legend[0].label === "Played move" &&
+      legend[0].color === COMPARE_ARROW_COLORS.played,
+    "First legend item is 'Played move' with red color"
+  );
+  assert(
+    legend[1].kind === "best" &&
+      legend[1].label === "Engine best" &&
+      legend[1].color === COMPARE_ARROW_COLORS.best,
+    "Second legend item is 'Engine best' with green color"
+  );
+  assert(JSON.stringify(mockBothDiffer) === snapshot, "Input mockBothDiffer is not mutated");
+}
+
+// Case 2: sameAsBest
+{
+  const mockSameAsBest = {
+    played: { from: "e2", to: "e4", uci: "e2e4" },
+    best: { from: "e2", to: "e4", uci: "e2e4" },
+    sameAsBest: true,
+  };
+  const legend = getCompareLegend(mockSameAsBest);
+  assert(Array.isArray(legend) && legend.length === 1, "sameAsBest returns 1 legend item");
+  assert(
+    legend[0].kind === "best" &&
+      legend[0].label === "Played = engine best" &&
+      legend[0].color === COMPARE_ARROW_COLORS.best,
+    "sameAsBest item is 'Played = engine best' with green color"
+  );
+}
+
+// Case 3: best missing (e.g. terminal or eval missing)
+{
+  const mockBestMissing = {
+    played: { from: "d7", to: "d5", uci: "d7d5" },
+    best: null,
+    sameAsBest: false,
+  };
+  const legend = getCompareLegend(mockBestMissing);
+  assert(Array.isArray(legend) && legend.length === 1, "best missing returns 1 legend item");
+  assert(
+    legend[0].kind === "played" &&
+      legend[0].label === "Played move" &&
+      legend[0].color === COMPARE_ARROW_COLORS.played,
+    "best missing item is 'Played move' with red color"
+  );
+}
+
+// Case 4: played missing but best exists
+{
+  const mockPlayedMissing = {
+    played: null,
+    best: { from: "g1", to: "f3", uci: "g1f3" },
+    sameAsBest: false,
+  };
+  const legend = getCompareLegend(mockPlayedMissing);
+  assert(Array.isArray(legend) && legend.length === 1, "played missing returns 1 legend item");
+  assert(
+    legend[0].kind === "best" &&
+      legend[0].label === "Engine best" &&
+      legend[0].color === COMPARE_ARROW_COLORS.best,
+    "played missing item is 'Engine best' with green color"
+  );
+}
+
+// Case 5: null, undefined, non-objects, empty objects
+{
+  assert(Array.isArray(getCompareLegend(null)) && getCompareLegend(null).length === 0, "null returns []");
+  assert(Array.isArray(getCompareLegend(undefined)) && getCompareLegend(undefined).length === 0, "undefined returns []");
+  assert(Array.isArray(getCompareLegend("invalid")) && getCompareLegend("invalid").length === 0, "string returns []");
+  assert(Array.isArray(getCompareLegend(12345)) && getCompareLegend(12345).length === 0, "number returns []");
+  assert(Array.isArray(getCompareLegend({})) && getCompareLegend({}).length === 0, "empty object returns []");
+  assert(
+    Array.isArray(getCompareLegend({ played: null, best: null })) &&
+      getCompareLegend({ played: null, best: null }).length === 0,
+    "{ played: null, best: null } returns []"
+  );
+}
+
 console.log("\n========================================================");
 console.log(`SUMMARY: ${passedCount} passed, ${failedCount} failed`);
 console.log("========================================================");
@@ -300,3 +397,4 @@ if (failedCount > 0) {
 } else {
   process.exit(0);
 }
+

@@ -6,7 +6,7 @@ import { getFenAt } from "@/lib/chessEngine";
 import { getCategoryConfig } from "@/lib/categoryStyles";
 import MoveExplanationCard from "@/components/MoveExplanationCard";
 import { getCompareData } from "@/lib/bestMoveArrows";
-import { toBoardArrows, getCompareCaption } from "@/lib/compareView";
+import { toBoardArrows, getCompareCaption, getCompareLegend } from "@/lib/compareView";
 
 export default function ChessBoardReplay({
   game,
@@ -22,6 +22,7 @@ export default function ChessBoardReplay({
 
   // Compare mode state
   const [isComparing, setIsComparing] = useState(false);
+  const [showArrows, setShowArrows] = useState(true);
 
   // Derive compare data for the currently selected move
   const compareData = useMemo(() => {
@@ -40,11 +41,15 @@ export default function ChessBoardReplay({
   const isCompareActive = Boolean(isComparing && canCompare && compareData);
 
   const boardArrows = useMemo(() => {
-    return isCompareActive ? toBoardArrows(compareData) : [];
-  }, [isCompareActive, compareData]);
+    return isCompareActive && showArrows ? toBoardArrows(compareData) : [];
+  }, [isCompareActive, showArrows, compareData]);
 
   const compareCaption = useMemo(() => {
     return isCompareActive ? getCompareCaption(compareData) : "";
+  }, [isCompareActive, compareData]);
+
+  const compareLegend = useMemo(() => {
+    return isCompareActive ? getCompareLegend(compareData) : [];
   }, [isCompareActive, compareData]);
 
   // AI Explanation cache: { [moveIndex]: ExplanationData }
@@ -68,11 +73,18 @@ export default function ChessBoardReplay({
     setExplanationsCache({});
     setExplainError(null);
     setIsComparing(false);
+    setShowArrows(true);
   }, [game]);
 
-  // Reset compare mode if analysis data changes (re-analysis)
+  // Reset compare mode and showArrows if analysis data changes (re-analysis)
+  // Track previous reference to avoid spurious resets if an empty array [] was passed on parent re-render
+  const prevEvaluationsRef = useRef(categorizedEvaluations);
   useEffect(() => {
-    setIsComparing(false);
+    if (prevEvaluationsRef.current !== categorizedEvaluations) {
+      prevEvaluationsRef.current = categorizedEvaluations;
+      setIsComparing(false);
+      setShowArrows(true);
+    }
   }, [categorizedEvaluations]);
 
   // External jump: when jumpRequest has a valid moveIndex and a new id, jump to that move.
@@ -286,22 +298,58 @@ export default function ChessBoardReplay({
             />
           </div>
 
-          {/* Compare Mode Banner & Accessible Caption */}
+          {/* Compare Mode Banner, Accessible Caption, Arrow Toggle & Visual Legend */}
           {isCompareActive && (
-            <div className="w-full max-w-[440px] p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-1 text-xs transition-all">
-              <div className="flex items-center justify-between text-amber-800 dark:text-amber-200 font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                  <span>Showing position BEFORE move {currentMove?.moveNumber}{currentMove?.turn === "w" ? ". " : "... "}{currentMove?.san}</span>
+            <div className="w-full max-w-[440px] p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-2.5 text-xs transition-all">
+              <div className="flex items-center justify-between text-amber-800 dark:text-amber-200 font-semibold gap-2">
+                <span className="flex items-center gap-1.5 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                  <span className="truncate">Showing position BEFORE move {currentMove?.moveNumber}{currentMove?.turn === "w" ? ". " : "... "}{currentMove?.san}</span>
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700">Compare</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/60 border border-amber-300 dark:border-amber-700 shrink-0">Compare</span>
               </div>
+
+              {/* Accessible description for screen readers and visual reinforcement */}
               <p
                 aria-live="polite"
-                className="text-amber-900 dark:text-amber-100"
+                className="text-amber-900 dark:text-amber-100 leading-relaxed"
               >
                 {compareCaption}
               </p>
+
+              {/* Toggle & Legend Toolbar */}
+              <div className="pt-2 border-t border-amber-200/80 dark:border-amber-800/80 flex flex-wrap items-center justify-between gap-2">
+                {/* Show arrows toggle */}
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none text-amber-950 dark:text-amber-100 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={showArrows}
+                    onChange={(e) => setShowArrows(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-amber-300 dark:border-amber-700 cursor-pointer accent-indigo-600"
+                    aria-label="Show move comparison arrows on the board"
+                  />
+                  <span>Show arrows</span>
+                </label>
+
+                {/* Visual Legend (Color swatches + labels) */}
+                {showArrows && compareLegend.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2 text-[11px]" aria-label="Arrow color legend">
+                    {compareLegend.map((item) => (
+                      <span
+                        key={item.kind}
+                        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-white/80 dark:bg-zinc-900/80 border border-amber-200 dark:border-amber-800/60 font-medium text-zinc-800 dark:text-zinc-200 shadow-xs"
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0 shadow-xs"
+                          style={{ backgroundColor: item.color }}
+                          aria-hidden="true"
+                        />
+                        <span>{item.label}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
