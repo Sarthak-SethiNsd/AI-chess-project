@@ -1,4 +1,4 @@
-import { getMarkerPoints, MARKER_CATEGORIES } from "../lib/evalGraphMarkers.js";
+import { getMarkerPoints, MARKER_CATEGORIES, formatGraphAriaDescription } from "../lib/evalGraphMarkers.js";
 
 let passedCount = 0;
 let failedCount = 0;
@@ -104,6 +104,40 @@ const geoCopy = JSON.parse(JSON.stringify(testGeo));
 getMarkerPoints(testSeries, testGeo);
 assert(JSON.stringify(testSeries) === JSON.stringify(seriesCopy), "testSeries not mutated");
 assert(JSON.stringify(testGeo) === JSON.stringify(geoCopy), "testGeo not mutated");
+
+// [Test 7] formatGraphAriaDescription grammar checks
+console.log("\n[Test 7] formatGraphAriaDescription grammar checks");
+assert(
+  formatGraphAriaDescription({ Blunder: 0, Mistake: 0, Brilliant: 0 }) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. No key moments marked.",
+  "Zero key moments formats as 'No key moments marked.'"
+);
+assert(
+  formatGraphAriaDescription(null) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. No key moments marked.",
+  "null counts safely formats as 'No key moments marked.'"
+);
+assert(
+  formatGraphAriaDescription({ Blunder: 1, Mistake: 0, Brilliant: 0 }) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: one blunder.",
+  "Single blunder formats as 'one blunder'"
+);
+assert(
+  formatGraphAriaDescription({ Blunder: 0, Mistake: 1, Brilliant: 0 }) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: one mistake.",
+  "Single mistake formats as 'one mistake'"
+);
+assert(
+  formatGraphAriaDescription({ Blunder: 0, Mistake: 0, Brilliant: 1 }) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: one brilliant move.",
+  "Single brilliant formats as 'one brilliant move'"
+);
+assert(
+  formatGraphAriaDescription({ Blunder: 2, Mistake: 3, Brilliant: 1 }) ===
+    "Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: 2 blunders, 3 mistakes, one brilliant move.",
+  "Mixed counts format correctly with plural blunders/mistakes and singular brilliant move"
+);
+
 
 console.log("\n=======================================================");
 console.log(`Results: ${passedCount} PASSED, ${failedCount} FAILED`);

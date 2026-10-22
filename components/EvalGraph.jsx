@@ -8,7 +8,7 @@ import {
   formatEvalText,
   formatPointLabel,
 } from "@/lib/evalGraphInteraction";
-import { getMarkerPoints } from "@/lib/evalGraphMarkers";
+import { getMarkerPoints, formatGraphAriaDescription } from "@/lib/evalGraphMarkers";
 
 /**
  * EvalGraph — SVG evaluation graph for a chess game review.
@@ -81,7 +81,7 @@ export default function EvalGraph({ series, currentIndex, onSelectIndex }) {
     return counts;
   }, [markerPoints]);
 
-  const ariaDescription = `Evaluation graph: White advantage shown above center, Black advantage below. Key moments marked: ${categoryCounts.Blunder} blunders, ${categoryCounts.Mistake} mistakes, ${categoryCounts.Brilliant} brilliant moves.`;
+  const ariaDescription = formatGraphAriaDescription(categoryCounts);
 
   // Validate currentIndex — must be an integer in [0, series.length - 1]
   const hasMarker =
